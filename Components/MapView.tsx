@@ -9,13 +9,6 @@ interface MapViewProps {
   onShopSelect: (shop: MotorcycleShop) => void
 }
 
-// Declare google maps types
-declare global {
-  interface Window {
-    google: any
-  }
-}
-
 export default function MapView({ shops, selectedShop, onShopSelect }: MapViewProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const googleMapRef = useRef<any>(null)
@@ -25,18 +18,18 @@ export default function MapView({ shops, selectedShop, onShopSelect }: MapViewPr
 
   useEffect(() => {
     const initMap = () => {
-      if (!mapRef.current || !window.google) return
+      if (!mapRef.current || !(window as any).google) return
 
-      googleMapRef.current = new window.google.maps.Map(mapRef.current, {
+      googleMapRef.current = new (window as any).google.maps.Map(mapRef.current, {
         center: { lat: 50.0, lng: 10.0 },
         zoom: 4,
       })
 
-      infoWindowRef.current = new window.google.maps.InfoWindow()
+      infoWindowRef.current = new (window as any).google.maps.InfoWindow()
       setMapLoaded(true)
     }
 
-    if (!window.google) {
+    if (!(window as any).google) {
       const script = document.createElement('script')
       script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
       script.async = true
@@ -57,7 +50,7 @@ export default function MapView({ shops, selectedShop, onShopSelect }: MapViewPr
 
     if (shops.length === 0) return
 
-    const bounds = new window.google.maps.LatLngBounds()
+    const bounds = new (window as any).google.maps.LatLngBounds()
     const validShops = shops.filter((shop: MotorcycleShop) => shop.latitude && shop.longitude)
 
     validShops.forEach((shop: MotorcycleShop) => {
@@ -66,23 +59,30 @@ export default function MapView({ shops, selectedShop, onShopSelect }: MapViewPr
         lng: shop.longitude!,
       }
 
-      // Create custom marker with better icon
-      const marker = new window.google.maps.Marker({
+      // Create marker with label
+      const marker = new (window as any).google.maps.Marker({
         position,
         map: googleMapRef.current,
         title: shop.name,
-        icon: {
-          path: window.google.maps.SymbolPath.CIRCLE,
-          scale: 8,
-          fillColor: '#2563eb',
-          fillOpacity: 1,
-          strokeColor: '#ffffff',
-          strokeWeight: 2,
+        label: {
+          text: shop.name,
+          color: '#1e40af',
+          fontSize: '13px',
+          fontWeight: '600',
+          className: 'map-marker-label'
         },
-        animation: window.google.maps.Animation.DROP,
+        icon: {
+          path: (window as any).google.maps.SymbolPath.CIRCLE,
+          scale: 10,
+          fillColor: '#2563eb',
+          fillOpacity: 0.9,
+          strokeColor: '#ffffff',
+          strokeWeight: 3,
+        },
+        animation: (window as any).google.maps.Animation.DROP,
       })
 
-      // Show name on hover
+      // Show detailed info on hover
       marker.addListener('mouseover', () => {
         showInfoWindow(shop, marker)
       })
@@ -90,7 +90,7 @@ export default function MapView({ shops, selectedShop, onShopSelect }: MapViewPr
       // Keep info window open for a moment on mouseout
       marker.addListener('mouseout', () => {
         setTimeout(() => {
-          if (selectedShop?.uuid !== shop.uuid) {
+          if (selectedShop?.id !== shop.id) {
             infoWindowRef.current?.close()
           }
         }, 500)
@@ -207,6 +207,27 @@ export default function MapView({ shops, selectedShop, onShopSelect }: MapViewPr
 
   return (
     <div className="card h-full p-0 overflow-hidden">
+      <style jsx global>{`
+        .gm-style-iw {
+          border-radius: 8px;
+        }
+        .gm-style-iw-d {
+          overflow: auto !important;
+        }
+        .gm-style .gm-style-iw-c {
+          padding: 0;
+          border-radius: 8px;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        /* Style for marker labels */
+        .gm-style div[style*="font-weight: 600"] {
+          background: white;
+          padding: 2px 6px;
+          border-radius: 4px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+          white-space: nowrap;
+        }
+      `}</style>
       <div ref={mapRef} className="w-full h-full min-h-[600px]" />
     </div>
   )
